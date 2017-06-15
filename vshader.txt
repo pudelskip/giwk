@@ -1,0 +1,47 @@
+#version 330
+
+//Zmienne jednorodne
+uniform mat4 P;
+uniform mat4 V;
+uniform mat4 M;
+uniform vec3 Przes;
+
+
+//Atrybuty
+in vec4 vertex; //wspolrzedne wierzcholka w przestrzeni modelu
+in vec4 color;  //kolor wierzcholka (na razie ignorowany)
+in vec4 normal; //wektor normalny w wierzcholku (na razie ignorowany)
+out vec4 interC;
+ float d;
+vec4 wiercholek;
+
+void main(void) {
+   // d=distance(V*M*vertex,vec4(0,0,0,1));
+   // d=1-((d-3.3)/2);
+   // interC =color*vec4(d,d,d,1);
+
+   vec4 lp = vec4(0,30,0,1);
+   vec4 l = V*lp - V*M*vertex;
+   vec4 n = V*M*normal;
+   float c = max(dot(normalize(l),normalize(n)),0);
+
+   interC=color;//*vec4(c,c,c,1);
+
+    mat4 Mov = mat4(1.0);
+    Mov[3].x=Przes.x;
+    Mov[3].z=Przes.z;
+
+    mat4 Rot = mat4(1.0f);
+    if(int(Przes.y)==1){
+    Rot[0].x=0;
+    Rot[0].z=-1;
+    Rot[2].x=1;
+    Rot[2].z=0;
+    }
+    mat4 Mod=M*Mov*Rot;
+
+	gl_Position=P*V*Mod*vertex;
+
+}
+
+
