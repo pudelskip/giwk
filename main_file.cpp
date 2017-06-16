@@ -55,15 +55,15 @@ bool cam_scr2=true;
 bool add=false;
 bool can_move=true;
 
-vec3 jedzenie;
-vec3 przesun[121];
+vec3 jedzenie; //położenie "jedzenia"
+vec3 przesun[121]; //położenie każdego z segmentów
 wolne_pola wolne[121];
-int pole[11][11];
+int pole[11][11]; //tablica z pozycjami segmentów na planszy 11x11
 bool glodny=true;
 
 //Uchwyty na shadery
 ShaderProgram *shaderProgram;
-ShaderProgram *shaderProgram1; //Wskaźnik na obiekt reprezentujący program cieniujący.
+ShaderProgram *shaderProgram1; //Drugi shader do podłogi
 
 //Uchwyty na VAO i bufory wierzchołków
 GLuint vao;
@@ -71,6 +71,7 @@ GLuint bufVertices; //Uchwyt na bufor VBO przechowujący tablicę współrzędny
 GLuint bufColors;  //Uchwyt na bufor VBO przechowujący tablicę kolorów
 GLuint bufNormals;
 
+//podłoga cd.
 GLuint vao_plan;
 GLuint bufVertices_plan;
 
@@ -83,6 +84,7 @@ float* colors=Models::CubeInternal::colors;//
 float* normals=Models::CubeInternal::normals;
 int vertexCount=Models::CubeInternal::vertexCount;
 
+//wierzchołki podłogi (plan)
 float ground[]={
     11.0f,-1.0f,11.0f,1.0f,
     -11.0f,-1.0f,11.0f,1.0f,
@@ -227,7 +229,7 @@ void drawObject(GLuint vao, ShaderProgram *shaderProgram, mat4 mP, mat4 mV, mat4
 	glUniformMatrix4fv(shaderProgram->getUniformLocation("P"),1, false, glm::value_ptr(mP));
 	glUniformMatrix4fv(shaderProgram->getUniformLocation("V"),1, false, glm::value_ptr(mV));
 	glUniformMatrix4fv(shaderProgram->getUniformLocation("M"),1, false, glm::value_ptr(mM));
-	glUniform3fv(shaderProgram->getUniformLocation("Przes"),1, glm::value_ptr(Przes));
+	glUniform3fv(shaderProgram->getUniformLocation("Przes"),1, glm::value_ptr(Przes));//przesuniecie aktualnie rysowanego segmentu
 	//glUniform4fv(shaderProgram->getUniformLocation("prz"),1, przesun);
 
 	//Uaktywnienie VAO i tym samym uaktywnienie predefiniowanych w tym VAO powiązań slotów atrybutów z tablicami z danymi
@@ -296,25 +298,16 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n) {
     P_1[3].z=-(2*near*far)/(far-near);
     P = P_1;
     //n,f,r,b,l,
-	glm::mat4 V1 = glm::lookAt( //Wylicz macierz widoku
-		glm::vec3(0.0f, 25.0f, 0.0f),
-		glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3(0.0f, 0.0f, -1.0f));
-
-
-
 
 	//Wylicz macierz modelu rysowanego obiektu
 	glm::mat4 M = glm::mat4(1.0f);
-
-	//M = glm::translate(M,przesun[0]);
-
-    //drawObject(vao,shaderProgram,P,V,M);
 
 
 	for(int i=0;i<n;i++){
 
         glm::mat4 M = glm::mat4(1.0f);
+
+        //Liczenie przesuniecia jest teraz w vshaderze
         /*glm:mat4 Move = glm::mat4(1.0f);
         Move = Move;
         Move[3].x=przesun[i].x;
@@ -341,9 +334,7 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n) {
 
 	//Przerzuć tylny bufor na przedni
 
-	//rysoawnie ziemi
-
-
+	//rysoawnie podłogi
 	M = glm::mat4(1.0f);
      drawObject2(vao_plan,shaderProgram1,P,V,M);
 
@@ -357,11 +348,11 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n) {
 int main(void)
 {
 
-    int n=3;
-    int wylosowana;
+    int n=3;// 3 segmenty na poczatku
+    int wylosowana; //do losowanie gdzie bedzie jedzenie
 	GLFWwindow* window; //Wskaźnik na obiekt reprezentujący okno
 
-	glfwSetErrorCallback(error_callback);//Zarejestruj procedurę obsługi błędów
+	glfwSetErrorCallback(error_callback);
 
 	if (!glfwInit()) { //Zainicjuj bibliotekę GLFW
 		fprintf(stderr, "Nie można zainicjować GLFW.\n");
@@ -387,11 +378,12 @@ int main(void)
 
 	initOpenGLProgram(window); //Operacje inicjujące
 
+	//poczatkowe pozyce segmentow
     przesun[0]=vec3(0.0f,0.0f,0.0f);
     przesun[1]=vec3(0.0f,0.0f,2.0f);
     przesun[2]=vec3(0.0f,0.0f,4.0f);
 
-
+    //poczatkowa pozycja jedzenia
     jedzenie = vec3(0.0f,0.0f,-6.0f);
 
     for(int i=0;i<11;i++)
@@ -399,6 +391,7 @@ int main(void)
             pole[i][j]=0;
 
 
+    //wpisanie poczakowych pozycje to tablicy z planszą 11x11
     for(int i=0;i<n;i++){
                   pole[int(przesun[i].x/2)+5][int(przesun[i].z/2)+5]=1;
                   //printf("[%d,%d]",int(przesun[i].x/2)+5,int(przesun[i].z/2)+5);
@@ -415,11 +408,9 @@ int main(void)
 	{
 
 
-	//	mov1 +=speed1*glfwGetTime();
-	//	mov2 +=speed2*glfwGetTime();
         bool moved=false;
-		//Zwiększ kąt o prędkość kątową razy czas jaki upłynął od poprzedniej klatki
 
+        //do ruchu kamerą
         if(cam_angle>20) cam_angle=20;
         if(cam_angle<15) cam_angle=15;
         czas += glfwGetTime();
@@ -442,7 +433,8 @@ int main(void)
             }
 
             if(speed1!=0) przesun[0].y=1;
-            else przesun[0].y=0;// !!!! Y NIE PRZESUWA TYLKO MOWI ZE BEDZIE OBROCONE
+            // !!!! Y TO NIE PRZESUNIECIE TYLKO MOWI ZE BEDZIE OBROCONE
+            else przesun[0].y=0;
 
             przesun[0].z=mov2;
             przesun[0].x=mov1;
@@ -482,7 +474,7 @@ int main(void)
                // printf("%d",wylosowana);
 
             }
-
+        //włącznie wersji kosolowej dla Intel graphics
         /*
             pole[int(przesun[0].x/2)+5][int(przesun[0].z/2)+5]=1;
             pole[int(przesun[n].x/2)+5][int(przesun[n].z/2)+5]=0;

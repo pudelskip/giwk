@@ -27,10 +27,12 @@ void main(void) {
 
    interC=color;//*vec4(c,c,c,1);
 
+   //liczenie macierzy przesuniecia
     mat4 Mov = mat4(1.0);
     Mov[3].x=Przes.x;
     Mov[3].z=Przes.z;
 
+    //liczenie macierzy obrotu o 90 stopni, oœ Y
     mat4 Rot = mat4(1.0f);
     if(int(Przes.y)==1){
     Rot[0].x=0;
