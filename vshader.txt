@@ -5,36 +5,53 @@ uniform mat4 P;
 uniform mat4 V;
 uniform mat4 M;
 uniform vec4 Przes;
+uniform vec4 lp;
+uniform vec4 lPp;
 
 
 //Atrybuty
-in vec4 vertex; //wspolrzedne wierzcholka w przestrzeni modelu
-in vec4 color;  //kolor wierzcholka (na razie ignorowany)
-in vec4 normal; //wektor normalny w wierzcholku (na razie ignorowany)
-out vec4 interC;
+
+layout(location = 0) in vec3 vertex;
+layout(location = 1) in vec3 normals;
+layout(location = 2) in vec2 uvs;
+layout(location = 3) in vec3 nTan;
+layout(location = 4) in vec3 nBTan;
+
+out vec2 texCoords;
+out vec4 l; //Wektor do swiatla w przestrzeni oka
+out vec4 v; //Wektor do obserwatora w przestrzeni oka
+out vec4 lPoint;
+out vec4 lPointPos;
+out vec4 vertexInt;
+
+out vec3 no;
+out vec3 T;
+out vec3 B;
+
+
  float d;
 vec4 wiercholek;
 
 float PI = 3.1415926;
 
+
+
 void main(void) {
-   // d=distance(V*M*vertex,vec4(0,0,0,1));
-   // d=1-((d-3.3)/2);
-   // interC =color*vec4(d,d,d,1);
 
-   vec4 lp = vec4(0,30,0,1);
-   vec4 l = V*lp - V*M*vertex;
-   vec4 n = V*M*normal;
-   float c = max(dot(normalize(l),normalize(n)),0);
 
-   interC=color;//*vec4(c,c,c,1);
-
+    //Obliczenie wektora do swiatla w przestrzeni oka
+	l=normalize(V*(lp-M*vec4(vertex,1)));
+	//Obliczenie wektora do obserwatora w przestrzeni oka
+	v=normalize(vec4(0,0,0,1)-(V*M*vec4(vertex,1)));
+    //Obliczenie wektora do światła punktowego w przestrzeni swiata
+    lPoint = normalize(V*(lPp - M*vec4(vertex,1)));
+    lPointPos = V*lPp;
    //liczenie macierzy przesuniecia
     mat4 Mov = mat4(1.0);
     Mov[3].x=Przes.x;
     Mov[3].z=Przes.z;
 
-    //liczenie macierzy obrotu o 90 stopni, o� Y
+    //liczenie macierzy obrotu o 90 stopni, oœ Y
 
     mat4 Rot = mat4(1.0);
     if(int(Przes.w)==0){
@@ -53,9 +70,15 @@ void main(void) {
 
    }
 
-    mat4 Mod=Mov*Rot;
+    mat4 Mod=Mov*Rot*M;
 
-	gl_Position=P*V*Mod*vertex;
+    no = normalize(vec3(V*Mod* vec4(normals, 0.0)));
+    T = normalize(vec3(V*Mod* vec4(nTan, 0.0)));
+    B = normalize(vec3(V*Mod* vec4(nBTan, 0.0)));
+
+    texCoords = uvs;
+    vertexInt = V*Mod*vec4(vertex,1.0);
+	gl_Position=P*V*Mod*vec4(vertex,1.0);
 
 }
 

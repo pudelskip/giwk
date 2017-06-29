@@ -1,0 +1,67 @@
+#version 330
+
+in vec2 texCoords; //Koordynaty tekstury
+in vec4 l; //Wektor do œwiat³a - przestrzeñ œwiata
+in vec4 v; //Wektor do obserwatora - przestrzeñ œwiata
+in vec4 lPoint;
+uniform vec4 lp;
+uniform vec4 lPp;
+
+in vec3 no; //Zmienne do obliczenia normal map
+in vec3 T;
+in vec3 B;
+
+out vec4 pixelColor; //Wyjœciowy kolor
+
+uniform sampler2D textureMap0;
+uniform sampler2D textureMap1;
+uniform mat4 M;
+
+
+// calculate diffuse component of lighting
+float diffuseSimple(vec3 L, vec3 N){
+   return clamp(dot(L,N),0.0,1.0);
+}
+
+// calculate specular component of lighting
+float specularSimple(vec3 L,vec3 N,vec3 H){
+   if(dot(N,L)>0){
+      return pow(clamp(dot(H,N),0.0,1.0),64.0);
+   }
+   return 0.0;
+}
+
+void main(void){
+   vec3 normal2 = normalize(texture(textureMap1, texCoords).rgb * 2 - 1);
+   mat3 TBN2 = mat3(B, T, no);
+   normal2 = normalize( TBN2 * normal2 );
+
+   vec4 _l = normalize(l);
+   vec4 _v = normalize(v);
+
+   float u_numShades = 2; //Liczba odcieni
+   vec3 colfromtex = texture(textureMap0,texCoords).rgb;
+
+   vec3 halfVector = normalize( _l.xyz + _v.xyz );
+   float iambi = 0.1;
+   float idiff = diffuseSimple(_l.xyz, normal2);
+   float ispec = specularSimple(_l.xyz,normal2, halfVector);
+   float intensity = iambi + idiff + ispec;
+   float  shadeIntensity = ceil(intensity * u_numShades)/ u_numShades;
+
+   //pixelColor.xyz = colfromtex*shadeIntensity ;
+   pixelColor.w = 1.0;
+
+// Œwiat³o punktowe
+   vec4 _lPoint = normalize(lPoint);
+   idiff = max(dot(normal2, _lPoint.xyz), 0.0);
+   //ispec = reflect(-lPoint.xyz, normal2);
+   float distance = length(lPp- gl_FragCoord);
+   float decrease = 1.0f / (1 + 0.01*distance + 0.1*distance*distance);
+
+   pixelColor.xyz += vec3(1,1,0) * decrease;
+
+
+
+}
+

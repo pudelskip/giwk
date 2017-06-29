@@ -31,10 +31,9 @@ Place, Fifth Floor, Boston, MA  02110 - 1301  USA
 #include "allmodels.h"
 #include "lodepng.h"
 #include "shaderprogram.h"
-#include <random>
+#include <time.h>
 
-std::random_device r;
-std::default_random_engine e1(r());
+
 
 struct wolne_pola{
 int a;
@@ -43,14 +42,13 @@ int b;
 
 using namespace glm;
 
-
+int tl = 0;
 float speed1 =0;
 float speed2 =-1;
 
 float cam_angle=20;
 float cam_speed=0;
-bool cam_scr1=false;
-bool cam_scr2=true;
+
 
 bool add=false;
 bool can_move=true;
@@ -84,32 +82,6 @@ GLuint bufVertices_plan;
 GLuint tex0;
 GLuint tex1;
 
-
- //Uchwyt na bufor VBO przechowujący tablickę wektorów normalnych
-
-//Kostka
-float* vertices1=Models::CubeInternal::vertices;
-float* colors1=Models::CubeInternal::colors;//
-float* normals1=Models::CubeInternal::normals;
-int vertexCount1=Models::CubeInternal::vertexCount;
-
-//wierzchołki podłogi (plan)
-float ground[]={
-    11.0f,-1.0f,11.0f,1.0f,
-    -11.0f,-1.0f,11.0f,1.0f,
-    11.0f,-1.0f,-11.0f,1.0f,
-
-    -11.0f,-1.0f,-11.0f,1.0f,
-    11.0f,-1.0f,-11.0f,1.0f,
-    -11.0f,-1.0f,11.0f,1.0f
-    };
-
-
-//Czajnik
-float* vertices=Models::TeapotInternal::vertices;
-float* colors=Models::TeapotInternal::colors;
-float* normals=Models::TeapotInternal::vertexNormals;
-int vertexCount=Models::TeapotInternal::vertexCount;
 
 
 
@@ -147,6 +119,9 @@ private:
     std::vector<glm::vec3> vertices;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> uvs;
+    std::vector<glm::vec3> normalTan;
+    std::vector<glm::vec3> normalBTan;
+
     std::vector<int> vertices_Index;
     std::vector<int> normals_Index;
     std::vector<int> uvs_Index;
@@ -156,16 +131,21 @@ private:
     GLuint bufVertices;
     GLuint bufNormals;
     GLuint bufUvs;
+    GLuint bufTan;
+    GLuint bufBTan;
     GLuint texture;
+    GLuint normalsTexture;
 public:
     ObjObject(){}
-    ObjObject(const char* fileName, const char* textureName){
+    ObjObject(const char* fileName, const char* textureName, const char* normalsTextureName){
         OpenFile(fileName);
         if(fileHandle != NULL){
             Initialize(fileHandle);
+            CalculateNormals();
             CreateVao();
             fclose(fileHandle);
             texture = readTexture(textureName);
+            normalsTexture = readTexture(normalsTextureName);
         }
 
     }
@@ -186,6 +166,9 @@ public:
     }
     GLuint getTexture(){
         return texture;
+    }
+    GLuint getNormalsTexture(){
+        return normalsTexture;
     }
      ~ObjObject(){
     }
@@ -277,12 +260,50 @@ public:
         }
         vertexCount = vertices.size();
     }
+    void CalculateNormals(){
+        for (int i = 0; i < vertexCount; i+=3){
+            glm::vec3 v0 = vertices[i];
+            glm::vec3 v1 = vertices[i+1];
+            glm::vec3 v2 = vertices[i+2];
+            glm::vec2 uv0 = uvs[i];
+            glm::vec2 uv1 = uvs[i+1];
+            glm::vec2 uv2 = uvs[i+2];
+            glm::vec3 deltaV1 = v1-v0;
+            glm::vec3 deltaV2 = v2-v0;
+            glm::vec2 deltaUV1 = uv1-uv0;
+            glm::vec2 deltaUV2 = uv2-uv0;
+
+            float w = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+            glm::vec3 tang, bTang;
+            tang.x = w * (deltaUV2.y* deltaV1.x - deltaUV1.y * deltaV2.x);
+            tang.y = w * (deltaUV2.y* deltaV1.y - deltaUV1.y * deltaV2.y);
+            tang.z = w * (deltaUV2.y* deltaV1.z - deltaUV1.y * deltaV2.z);
+            tang = glm::normalize(tang);
+
+            bTang.x = w * (-deltaUV2.x* deltaV1.x + deltaUV1.x * deltaV2.x);
+            bTang.y = w * (-deltaUV2.x* deltaV1.y + deltaUV1.x * deltaV2.y);
+            bTang.x = w * (-deltaUV2.x* deltaV1.z + deltaUV1.x * deltaV2.z);
+            bTang = glm::normalize(bTang);
+
+
+            normalTan.push_back(tang);
+            normalTan.push_back(tang);
+            normalTan.push_back(tang);
+            normalBTan.push_back(bTang);
+            normalBTan.push_back(bTang);
+            normalBTan.push_back(bTang);
+
+        }
+    }
+
     void CreateVao(){
         glGenVertexArrays(1,&vao); //Wygeneruj uchwyt na VAO i zapisz go do zmiennej globalnej
         glBindVertexArray(vao);
         GenerateAndBindBuffer(bufVertices, vertices, 0);
         GenerateAndBindBuffer(bufNormals, normals, 1);
         GenerateAndBindBuffer(bufUvs, uvs, 2);
+        GenerateAndBindBuffer(bufTan, normalTan, 3);
+        GenerateAndBindBuffer(bufBTan, normalBTan, 4);
         glBindVertexArray(0);
     }
     void GenerateAndBindBuffer(GLuint buffer, std::vector<glm::vec3>& data, int attribute){
@@ -332,10 +353,6 @@ public:
     }
 };
 
-void loadObjectFromFile(){
-}
-
-
 
 //Procedura obsługi błędów
 void error_callback(int error, const char* description) {
@@ -353,10 +370,12 @@ void key_callback(GLFWwindow* window, int key,
 
 		if (key == GLFW_KEY_P && cam_angle<20){cam_speed=2;}
 		if (key == GLFW_KEY_L && cam_angle>15){cam_speed=-2;}
+		if (key == GLFW_KEY_Q) {tl = -1;}
 	}
     if (action == GLFW_RELEASE) {
         if (key == GLFW_KEY_P ){cam_speed=0;}
 		if (key == GLFW_KEY_L ){cam_speed=0;}
+
     }
 
 }
@@ -390,44 +409,9 @@ void initOpenGLProgram(GLFWwindow* window) {
 	glfwSetKeyCallback(window, key_callback); //Zarejestruj procedurę obsługi klawiatury
 
 
-	shaderProgram=new ShaderProgram("vshader.txt",NULL,"fshader.txt"); //Wczytaj program cieniujący
-    shaderProgram1=new ShaderProgram("vshader1.txt",NULL,"fshader1.txt");
-    shaderProgramT=new ShaderProgram("vshader2.txt",NULL,"fshader2.txt");
+	shaderProgram=new ShaderProgram("vshader.txt",NULL,"fshaderLegit.txt"); //Wczytaj program cieniujący
 
-	//*****Przygotowanie do rysowania pojedynczego obiektu*******
-	//Zbuduj VBO z danymi obiektu do narysowania
-
-	//bufory glowy
-	bufVertices1=makeBuffer(vertices1, vertexCount1, sizeof(float)*4); //VBO ze współrzędnymi wierzchołków
-	bufColors1=makeBuffer(colors1, vertexCount1, sizeof(float)*4);//VBO z kolorami wierzchołków
-	bufNormals1=makeBuffer(normals1, vertexCount1, sizeof(float)*4);//VBO z wektorami normalnymi wierzchołków
-
-    bufVertices=makeBuffer(vertices, vertexCount, sizeof(float)*4); //VBO ze współrzędnymi wierzchołków
-	bufColors=makeBuffer(colors, vertexCount, sizeof(float)*4);//VBO z kolorami wierzchołków
-	bufNormals=makeBuffer(normals, vertexCount, sizeof(float)*4);//VBO z wektorami normalnymi wierzchołków
-
-    //bufor podlogi
-    bufVertices_plan= makeBuffer(ground, 6, sizeof(float)*4);
-
-
-	//Zbuduj VAO wiążący atrybuty z konkretnymi VBO
-	glGenVertexArrays(1,&vao); //Wygeneruj uchwyt na VAO i zapisz go do zmiennej globalnej
-    glGenVertexArrays(1,&vao_plan);
-
-/*
-	glBindVertexArray(vao); //Uaktywnij nowo utworzony VAO
-
-	assignVBOtoAttribute(shaderProgram,"vertex",bufVertices,4); //"vertex" odnosi się do deklaracji "in vec4 vertex;" w vertex shaderze
-	assignVBOtoAttribute(shaderProgram,"color",bufColors,4); //"color" odnosi się do deklaracji "in vec4 color;" w vertex shaderze
-	assignVBOtoAttribute(shaderProgram,"normal",bufNormals,4);
-	//"normal" odnosi się do deklaracji "in vec4 normal;" w vertex shaderze
-
-	glBindVertexArray(0);
-*/
-	//VAO podlogi
-	glBindVertexArray(vao_plan); //Uaktywnij nowo utworzony VAO
-
-	assignVBOtoAttribute(shaderProgram1,"vertices",bufVertices_plan,4);
+    shaderProgramT=new ShaderProgram("vshader.txt",NULL,"fshader.txt");
 
 	glBindVertexArray(0);
 	//Dezaktywuj VAO
@@ -453,70 +437,37 @@ void freeOpenGLProgram() {
 
 }
 
-void drawObject(GLuint vao, ShaderProgram *shaderProgram, mat4 mP, mat4 mV, mat4 mM, vec4 Przes) {
-	//Włączenie programu cieniującego, który ma zostać użyty do rysowania
-	//W tym programie wystarczyłoby wywołać to raz, w setupShaders, ale chodzi o pokazanie,
-	//że mozna zmieniać program cieniujący podczas rysowania jednej sceny
-	shaderProgram->use();
 
-	//Przekaż do shadera macierze P,V i M.
-	//W linijkach poniżej, polecenie:
-	//  shaderProgram->getUniformLocation("P")
-	//pobiera numer slotu odpowiadającego zmiennej jednorodnej o podanej nazwie
-	//UWAGA! "P" w powyższym poleceniu odpowiada deklaracji "uniform mat4 P;" w vertex shaderze,
-	//a mP w glm::value_ptr(mP) odpowiada argumentowi  "mat4 mP;" TYM pliku.
-	//Cała poniższa linijka przekazuje do zmiennej jednorodnej P w vertex shaderze dane z argumentu mP niniejszej funkcji
-	//Pozostałe polecenia działają podobnie.
-	glUniformMatrix4fv(shaderProgram->getUniformLocation("P"),1, false, glm::value_ptr(mP));
-	glUniformMatrix4fv(shaderProgram->getUniformLocation("V"),1, false, glm::value_ptr(mV));
-	glUniformMatrix4fv(shaderProgram->getUniformLocation("M"),1, false, glm::value_ptr(mM));
-	glUniform4fv(shaderProgram->getUniformLocation("Przes"),1, glm::value_ptr(Przes));//przesuniecie aktualnie rysowanego segmentu
-	//glUniform4fv(shaderProgram->getUniformLocation("prz"),1, przesun);
-
-	//Uaktywnienie VAO i tym samym uaktywnienie predefiniowanych w tym VAO powiązań slotów atrybutów z tablicami z danymi
-	glBindVertexArray(vao);
-
-	//Narysowanie obiektu
-	glDrawArrays(GL_TRIANGLES,0,vertexCount);
-
-	//Posprzątanie po sobie (niekonieczne w sumie jeżeli korzystamy z VAO dla każdego rysowanego obiektu)
-	glBindVertexArray(0);
-}
-
-void drawObject2(GLuint vao, ShaderProgram *shaderProgram, mat4 mP, mat4 mV, mat4 mM) {
-
-	shaderProgram->use();
-
-
-	glUniformMatrix4fv(shaderProgram->getUniformLocation("P"),1, false, glm::value_ptr(mP));
-	glUniformMatrix4fv(shaderProgram->getUniformLocation("V"),1, false, glm::value_ptr(mV));
-	glUniformMatrix4fv(shaderProgram->getUniformLocation("M"),1, false, glm::value_ptr(mM));
-
-	glBindVertexArray(vao);
-
-	//Narysowanie obiektu
-	glDrawArrays(GL_TRIANGLES,0,6);
-
-	//Posprzątanie po sobie (niekonieczne w sumie jeżeli korzystamy z VAO dla każdego rysowanego obiektu)
-	glBindVertexArray(0);
-}
 
 void drawObjectT(ObjObject* object, ShaderProgram *shaderProgram, mat4 mP, mat4 mV, mat4 mM,vec4 Przes) {
 
 	shaderProgram->use();
+
+    if(tl == 10){
+        glUniform4f(shaderProgram->getUniformLocation("lPcolor"),1,0.1,0.45,1); //Pozycja światła nagrody
+    }
+    else{
+        glUniform4f(shaderProgram->getUniformLocation("lPcolor"),0,0,1,1); //Pozycja światła nagrody
+    }
 
 	//Pozostałe polecenia działają podobnie.
 	glUniformMatrix4fv(shaderProgram->getUniformLocation("P"),1, false, glm::value_ptr(mP));
 	glUniformMatrix4fv(shaderProgram->getUniformLocation("V"),1, false, glm::value_ptr(mV));
 	glUniformMatrix4fv(shaderProgram->getUniformLocation("M"),1, false, glm::value_ptr(mM));
     glUniform4fv(shaderProgram->getUniformLocation("Przes"),1, glm::value_ptr(Przes));
+
+    glUniform4f(shaderProgram->getUniformLocation("lp"),0,15,0,1); //Pozycja światła w przestrzeni świata
+	glUniform4f(shaderProgram->getUniformLocation("lPp"),jedzenie.x,0.0,jedzenie.z,1); //Pozycja światła nagrody
+
+
 	glUniform1i(shaderProgram->getUniformLocation("textureMap0"),0);
 	glUniform1i(shaderProgram->getUniformLocation("textureMap1"),1);
+
 	//Przypisanie tekstur do jednostek teksturujących
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D,object->getTexture());
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D,tex1);
+	glBindTexture(GL_TEXTURE_2D,object->getNormalsTexture());
 
 	//Uaktywnienie VAO i tym samym uaktywnienie predefiniowanych w tym VAO powiązań slotów atrybutów z tablicami z danymi
     glBindVertexArray(object->getVao());
@@ -529,6 +480,16 @@ void drawObjectT(ObjObject* object, ShaderProgram *shaderProgram, mat4 mP, mat4 
 }
 //Procedura rysująca zawartość sceny
 void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEntity *entities) {
+    srand(time(NULL));
+    int pom = rand() % 30;
+    //std::cout << pom << std::endl;
+    if(pom == 20 && tl!=-1){
+            if(tl != 10 && tl != 20){
+                tl = 10;
+        }
+    }
+
+
 	//************Tutaj umieszczaj kod rysujący obraz******************l
 
     glm::vec3 Obserwator = vec3(0.0f,cam_angle,-3*cam_angle+60);
@@ -576,9 +537,13 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
         sc[3].w=1;
 
     glm::mat4 M = glm::mat4(1.0f);
-    drawObjectT(entities[0].getObject(),shaderProgramT,P,V,M*sc,przesun[0]);
+    if(tl == 20){
+        drawObjectT(entities[0].getObject(),shaderProgram,P,V,M*sc,przesun[0]);
+    }
+    else{
+        drawObjectT(entities[0].getObject(),shaderProgramT,P,V,M*sc,przesun[0]);
 
-
+    }
 
 
     //atrybuty ciała
@@ -588,10 +553,13 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
 	for(int i=1;i<n;i++){
         glm::mat4 M = glm::mat4(1.0f);
         //Liczenie przesuniecia jest teraz w vshaderze
+            if(tl == 20){
+         drawObjectT(entities[3].getObject(),shaderProgram,P,V,M*sc,przesun[i]);
+            }
+            else{
+        drawObjectT(entities[3].getObject(),shaderProgramT,P,V,M*sc,przesun[i]);
+            }
 
-         drawObjectT(entities[3].getObject(),shaderProgramT,P,V,M*sc,przesun[i]);
-
-       //drawObject(vao,shaderProgram,P,V,M,przesun[i]);
 
 	}
 
@@ -600,27 +568,20 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
             sc[3].w=1;
             glm::mat4 M = glm::mat4(1.0f);
 
-       // M = glm::translate(M,jedzenie);
+
         drawObjectT(entities[4].getObject(),shaderProgramT,P,V,M*sc,jedzenie);
 
-       // drawObject(vao,shaderProgram,P,V,M,jedzenie);
 
     }
-	//M = glm::rotate(M, angle_x, glm::vec3(1, 0, 0));
-	//M = glm::rotate(M, angle_y, glm::vec3(0, 1, 0));
 
-	//Narysuj obiekt
-	//drawObject(vao,shaderProgram,P,V,M);
-
-	//Przerzuć tylny bufor na przedni
-
-	//rysoawnie podłogi
-	M = glm::mat4(1.0f);
-
+	M = glm::mat4(1.1f);
+	 M[3].w=1;
 	M[3].y=-1;
-      drawObjectT(entities[1].getObject(),shaderProgramT,P,V,M,vec4(0,0,0,0));
-    M = glm::mat4(1.0f);
 
+      drawObjectT(entities[1].getObject(),shaderProgramT,P,V,M,vec4(0,0,0,0));
+    M = glm::mat4(1.1f);
+
+	 M[3].w=1;
 	M[3].y=-1;
      drawObjectT(entities[2].getObject(),shaderProgramT,P,V,M,vec4(0,0,0,0));
 
@@ -661,10 +622,10 @@ int main(void)
 		fprintf(stderr, "Nie można zainicjować GLEW.\n");
 		exit(EXIT_FAILURE);
 	}
-
 	initOpenGLProgram(window); //Operacje inicjujące
     //ObjEntity(glm::vec3 coords, int id, float scale, ObjObject* object)
-	ObjObject objectArray[5] = {{"snakeHead.obj", "snakeHead.png"}, {"board.obj", "board.png"}, {"fence.obj", "fence.png"}, {"snakeBody.obj", "snakeBody.png"}, {"cupcake.obj", "cupcake.png"}};
+	ObjObject objectArray[5] = {{"snakeHead.obj", "snakeHead.png", "NormalDummy.png"}, {"board.obj", "board.png", "NormalMap.png"}, {"fence.obj", "fence.png", "NormalDummy.png"},
+        {"snakeBody.obj", "snakeBody.png", "NormalDummy.png"}, {"cupcake.obj", "cupcake.png","NormalDummy.png"}};
     ObjEntity entityArray[5] = {{vec3(0,1,0),1, 0.7, &objectArray[0]}, {vec3(0,0,0),1 , 1, &objectArray[1]}, {vec3(0,0,0),1 ,1 , &objectArray[2]},{vec3(0,0,0),1 ,1 , &objectArray[3]},{vec3(0,0,0),1 ,1 , &objectArray[4]}};
 
 	//poczatkowe pozyce segmentow
@@ -683,7 +644,7 @@ int main(void)
     //wpisanie poczakowych pozycje to tablicy z planszą 11x11
     for(int i=0;i<n;i++){
                   pole[int(przesun[i].x/2)+5][int(przesun[i].z/2)+5]=1;
-                  //printf("[%d,%d]",int(przesun[i].x/2)+5,int(przesun[i].z/2)+5);
+
                 }
 
 	float mov1=0;
@@ -708,7 +669,7 @@ int main(void)
 		if(czas>0.7f)
         {
             czas=0;
-            //glfwSetTime(0); //Wyzeruj licznik czasu
+
             mov1+=speed1*2;
             mov2+=speed2*2;
 
@@ -721,9 +682,6 @@ int main(void)
             if(speed1==-1.0f){przesun[0].y=1; przesun[0].w=2;}
             if(speed2==1.0f){przesun[0].y=0; przesun[0].w=3;}
             if(speed2==-1.0f){przesun[0].y=0; przesun[0].w=1;}
-          //  std::cout<<przesun[0].w;
-            // !!!! Y TO NIE PRZESUNIECIE TYLKO MOWI ZE BEDZIE OBROCONE
-            //Zmienna "w" okresla obrot glowy, 0 oznacza ze to segment ciała i obrot jest brany z "y" w vshaderze
 
 
             przesun[0].z=mov2;
@@ -750,24 +708,13 @@ int main(void)
             for(int i=2;i<n;i++){
             int pom1 = int(przesun[i].x-przesun[i-2].x);
             int pom2 = int(przesun[i].z-przesun[i-2].z);
-           // printf("%f | %f\n",przesun[n-3].x,przesun[n-2].x);
-            std::cout<<pom1<<" "<<pom2<<std::endl;
+
             if(pom1>0 && pom2>0) przesun[i-1].w=1.5;
             if(pom1>0 && pom2<0) przesun[i-1].w=2.5;
             if(pom1<0 && pom2>0) przesun[i-1].w=4.5;
             if(pom1<0 && pom2<0) przesun[i-1].w=3.5;
 
             }
-
-            /*
-            for(int i=1;i<n-1;i++){
-                if(przesun[i].y!=przesun[i-1].y)
-                przesun[i].w=1.5;
-                else
-                przesun[i].w=0;
-            }
-
-            */
 
 
             moved=true;
@@ -784,7 +731,9 @@ int main(void)
 
 
             if(przesun[0].x==jedzenie.x && przesun[0].z==jedzenie.z){
-
+                if(tl == 10){
+                    tl = 20;
+                }
                 int ile=0;
                 for(int i=0;i<11;i++){
                     for(int j=0;j<11;j++){
@@ -795,18 +744,17 @@ int main(void)
                             }
                     }
                 }
-                std::uniform_int_distribution<int> uniform_dist(0, ile);
-                wylosowana = uniform_dist(e1);
+                srand (time(NULL));
+                wylosowana = rand() % ile;
                 jedzenie.x=(wolne[wylosowana].a-5)*2;
                 jedzenie.z=(wolne[wylosowana].b-5)*2;
-               // printf("%d",wylosowana);
+
                 n+=1;
 
                 for(int i=1;i<n;i++){
                     int pom1 = int(przesun[i-1].x-przesun[i].x);
                     int pom2 = int(przesun[i-1].z-przesun[i].z);
-                   // printf("%f | %f\n",przesun[n-3].x,przesun[n-2].x);
-                    std::cout<<pom1<<' '<<pom2<<std::endl;
+
                     if(pom1>0) przesun[i].w=4;
                     if(pom1<0) przesun[i].w=2;
                     if(pom2>0) przesun[i].w=3;
@@ -818,8 +766,7 @@ int main(void)
                  for(int i=2;i<n;i++){
                     int pom1 = int(przesun[i].x-przesun[i-2].x);
                     int pom2 = int(przesun[i].z-przesun[i-2].z);
-                   // printf("%f | %f\n",przesun[n-3].x,przesun[n-2].x);
-                    std::cout<<pom1<<" "<<pom2<<std::endl;
+
                     if(pom1>0 && pom2>0) przesun[i-1].w=1.5;
                     if(pom1>0 && pom2<0) przesun[i-1].w=2.5;
                     if(pom1<0 && pom2>0) przesun[i-1].w=4.5;
@@ -828,20 +775,7 @@ int main(void)
                     }
 
             }
-                /*
 
-        //włącznie wersji kosolowej dla Intel graphics
-        /*
-            pole[int(przesun[0].x/2)+5][int(przesun[0].z/2)+5]=1;
-            pole[int(przesun[n].x/2)+5][int(przesun[n].z/2)+5]=0;
-                printf("\n");
-                for(int i=0;i<11;i++){
-                    for(int j=0;j<11;j++){
-                            printf("%d",pole[j][i]);}
-                    printf("\n");
-                }
-                printf("\n");
-        */
          can_move=true;
         }
 
