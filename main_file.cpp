@@ -43,8 +43,7 @@ int b;
 
 using namespace glm;
 
-float speed_x = 0; // [radiany/s]
-float speed_y = 0; // [radiany/s]
+
 float speed1 =0;
 float speed2 =-1;
 
@@ -535,7 +534,7 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
     glm::vec3 Obserwator = vec3(0.0f,cam_angle,-3*cam_angle+60);
    // glm::vec3 Obserwator = vec3(0.0f,-0.9f,18.0f);
     glm::vec3 Punkt = vec3(0.0f,0.0f,0.0f);
-    glm::vec3 Nos = vec3(0.0f, 1.0f, -1.0f);
+    glm::vec3 Nos = vec3(0.0f, 0.0f, -1.0f);
 
 
     float near=1.0f;
@@ -571,48 +570,40 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
 	//Wylicz macierz modelu rysowanego obiektu
 
 
-    //Atrybuty głowy
-    glBindVertexArray(vao); //Uaktywnij nowo utworzony VAO
-	assignVBOtoAttribute(shaderProgram,"vertex",bufVertices1,4); //"vertex" odnosi się do deklaracji "in vec4 vertex;" w vertex shaderze
-	assignVBOtoAttribute(shaderProgram,"color",bufColors1,4); //"color" odnosi się do deklaracji "in vec4 color;" w vertex shaderze
-	assignVBOtoAttribute(shaderProgram,"normal",bufNormals1,4);
-	glBindVertexArray(0);
+
+
+	    glm::mat4 sc = glm::mat4(0.9f);
+        sc[3].w=1;
 
     glm::mat4 M = glm::mat4(1.0f);
-    drawObjectT(entities[0].getObject(),shaderProgramT,P,V,M,przesun[0]);
+    drawObjectT(entities[0].getObject(),shaderProgramT,P,V,M*sc,przesun[0]);
 
 
 
 
     //atrybuty ciała
 
-	glBindVertexArray(vao); //Uaktywnij nowo utworzony VAO
-	assignVBOtoAttribute(shaderProgram,"vertex",bufVertices1,4); //"vertex" odnosi się do deklaracji "in vec4 vertex;" w vertex shaderze
-	assignVBOtoAttribute(shaderProgram,"color",bufColors1,4); //"color" odnosi się do deklaracji "in vec4 color;" w vertex shaderze
-	assignVBOtoAttribute(shaderProgram,"normal",bufNormals1,4);
-	//"normal" odnosi się do deklaracji "in vec4 normal;" w vertex shaderze
-	glBindVertexArray(0);
 
 
 	for(int i=1;i<n;i++){
         glm::mat4 M = glm::mat4(1.0f);
         //Liczenie przesuniecia jest teraz w vshaderze
-        /*glm:mat4 Move = glm::mat4(1.0f);
-        Move = Move;
-        Move[3].x=przesun[i].x;
-        Move[3].z=przesun[i].z;
-        M=Move;*/
-        //M = glm::translate(M,przesun[i]);
 
-        drawObject(vao,shaderProgram,P,V,M,przesun[i]);
+         drawObjectT(entities[3].getObject(),shaderProgramT,P,V,M*sc,przesun[i]);
+
+       //drawObject(vao,shaderProgram,P,V,M,przesun[i]);
 
 	}
 
     if(glodny){
-       glm::mat4 M = glm::mat4(1.0f);
-       // M = glm::translate(M,jedzenie);
+            glm::mat4 sc = glm::mat4(0.4f);
+            sc[3].w=1;
+            glm::mat4 M = glm::mat4(1.0f);
 
-        drawObject(vao,shaderProgram,P,V,M,jedzenie);
+       // M = glm::translate(M,jedzenie);
+        drawObjectT(entities[4].getObject(),shaderProgramT,P,V,M*sc,jedzenie);
+
+       // drawObject(vao,shaderProgram,P,V,M,jedzenie);
 
     }
 	//M = glm::rotate(M, angle_x, glm::vec3(1, 0, 0));
@@ -625,7 +616,13 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
 
 	//rysoawnie podłogi
 	M = glm::mat4(1.0f);
-     drawObject2(vao_plan,shaderProgram1,P,V,M);
+
+	M[3].y=-1;
+      drawObjectT(entities[1].getObject(),shaderProgramT,P,V,M,vec4(0,0,0,0));
+    M = glm::mat4(1.0f);
+
+	M[3].y=-1;
+     drawObjectT(entities[2].getObject(),shaderProgramT,P,V,M,vec4(0,0,0,0));
 
 
 	glfwSwapBuffers(window);
@@ -636,7 +633,7 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
 
 int main(void)
 {
-
+    bool running=true;
     int n=3;// 3 segmenty na poczatku
     int wylosowana; //do losowanie gdzie bedzie jedzenie
 	GLFWwindow* window; //Wskaźnik na obiekt reprezentujący okno
@@ -666,9 +663,9 @@ int main(void)
 	}
 
 	initOpenGLProgram(window); //Operacje inicjujące
-
-	ObjObject objectArray[3] = {{"Snake_headv5.obj", "snake.png"}, {"board.obj", "board.png"}, {"fence.obj", "fence.png"}};
-    ObjEntity entityArray[3] = {{vec3(0,1,0),1, 0.7, &objectArray[0]}, {vec3(0,0,0),1 , 1, &objectArray[1]}, {vec3(0,0,0),1 ,1 , &objectArray[2]}};
+    //ObjEntity(glm::vec3 coords, int id, float scale, ObjObject* object)
+	ObjObject objectArray[5] = {{"snakeHead.obj", "snakeHead.png"}, {"board.obj", "board.png"}, {"fence.obj", "fence.png"}, {"snakeBody.obj", "snakeBody.png"}, {"cupcake.obj", "cupcake.png"}};
+    ObjEntity entityArray[5] = {{vec3(0,1,0),1, 0.7, &objectArray[0]}, {vec3(0,0,0),1 , 1, &objectArray[1]}, {vec3(0,0,0),1 ,1 , &objectArray[2]},{vec3(0,0,0),1 ,1 , &objectArray[3]},{vec3(0,0,0),1 ,1 , &objectArray[4]}};
 
 	//poczatkowe pozyce segmentow
     przesun[0]=vec4(0.0f,0.0f,0.0f,1.0f);
@@ -696,7 +693,7 @@ int main(void)
 	 //Wyzeruj licznik czasu
     float czas=0;
 	//Główna pętla
-	while (!glfwWindowShouldClose(window)) //Tak długo jak okno nie powinno zostać zamknięte
+	while (!glfwWindowShouldClose(window) && running) //Tak długo jak okno nie powinno zostać zamknięte
 	{
 
         bool moved=false;
@@ -708,7 +705,7 @@ int main(void)
         cam_angle+=cam_speed*glfwGetTime();
         glfwSetTime(0);
 
-		if(czas>1.4f)
+		if(czas>0.7f)
         {
             czas=0;
             //glfwSetTime(0); //Wyzeruj licznik czasu
@@ -718,15 +715,13 @@ int main(void)
 
             for(int i=n;i>0;i--){
                 przesun[i]=przesun[i-1];
-                przesun[i].w=0;
+               // przesun[i].w=0;
             }
-
-
             if(speed1==1.0f){przesun[0].y=1; przesun[0].w=4;}
             if(speed1==-1.0f){przesun[0].y=1; przesun[0].w=2;}
             if(speed2==1.0f){przesun[0].y=0; przesun[0].w=3;}
             if(speed2==-1.0f){przesun[0].y=0; przesun[0].w=1;}
-
+          //  std::cout<<przesun[0].w;
             // !!!! Y TO NIE PRZESUNIECIE TYLKO MOWI ZE BEDZIE OBROCONE
             //Zmienna "w" okresla obrot glowy, 0 oznacza ze to segment ciała i obrot jest brany z "y" w vshaderze
 
@@ -734,17 +729,37 @@ int main(void)
             przesun[0].z=mov2;
             przesun[0].x=mov1;
 
-//TODO maybe//dodanie petli obracania wszystkich segmentow
-            int pom1 = int(przesun[n-2].x-przesun[n-1].x);
-            int pom2 = int(przesun[n-2].z-przesun[n-1].z);
+            //Uderzenie w płotek
+            if(abs(przesun[0].x)>11 || abs(przesun[0].z)>11){
+            running=false;
+            }
+
+            for(int i=1;i<n;i++){
+            int pom1 = int(przesun[i-1].x-przesun[i].x);
+            int pom2 = int(przesun[i-1].z-przesun[i].z);
            // printf("%f | %f\n",przesun[n-3].x,przesun[n-2].x);
-           printf("%d | %d\n",pom1,pom2);
-            if(pom1>0) przesun[n-1].w=3;
-            if(pom1<0) przesun[n-1].w=1;
-            if(pom2>0) przesun[n-1].w=2;
-            if(pom2<0) przesun[n-1].w=4;
+
+            if(pom1>0) przesun[i].w=4;
+            if(pom1<0) przesun[i].w=2;
+            if(pom2>0) przesun[i].w=3;
+            if(pom2<0) przesun[i].w=1;
+
+            }
 
 
+            for(int i=2;i<n;i++){
+            int pom1 = int(przesun[i].x-przesun[i-2].x);
+            int pom2 = int(przesun[i].z-przesun[i-2].z);
+           // printf("%f | %f\n",przesun[n-3].x,przesun[n-2].x);
+            std::cout<<pom1<<" "<<pom2<<std::endl;
+            if(pom1>0 && pom2>0) przesun[i-1].w=1.5;
+            if(pom1>0 && pom2<0) przesun[i-1].w=2.5;
+            if(pom1<0 && pom2>0) przesun[i-1].w=4.5;
+            if(pom1<0 && pom2<0) przesun[i-1].w=3.5;
+
+            }
+
+            /*
             for(int i=1;i<n-1;i++){
                 if(przesun[i].y!=przesun[i-1].y)
                 przesun[i].w=1.5;
@@ -752,22 +767,20 @@ int main(void)
                 przesun[i].w=0;
             }
 
-
+            */
 
 
             moved=true;
 
+
+
             for(int i=1;i<n;i++){
                 if(przesun[0].x==przesun[i].x && przesun[0].z==przesun[i].z){
+                    running=false;
+                    break;
 
-                    freeOpenGLProgram();
-                    glfwDestroyWindow(window); //Usuń kontekst OpenGL i okno
-                    glfwTerminate(); //Zwolnij zasoby zajęte przez GLFW
-                    exit(EXIT_SUCCESS);
                 }
             }
-
-
 
 
             if(przesun[0].x==jedzenie.x && przesun[0].z==jedzenie.z){
@@ -788,16 +801,35 @@ int main(void)
                 jedzenie.z=(wolne[wylosowana].b-5)*2;
                // printf("%d",wylosowana);
                 n+=1;
-                 int pom1 = int(przesun[n-2].x-przesun[n-1].x);
-            int pom2 = int(przesun[n-2].z-przesun[n-1].z);
-           // printf("%f | %f\n",przesun[n-3].x,przesun[n-2].x);
 
-            if(pom1>0) przesun[n-1].w=3;
-            if(pom1<0) przesun[n-1].w=1;
+                for(int i=1;i<n;i++){
+                    int pom1 = int(przesun[i-1].x-przesun[i].x);
+                    int pom2 = int(przesun[i-1].z-przesun[i].z);
+                   // printf("%f | %f\n",przesun[n-3].x,przesun[n-2].x);
+                    std::cout<<pom1<<' '<<pom2<<std::endl;
+                    if(pom1>0) przesun[i].w=4;
+                    if(pom1<0) przesun[i].w=2;
+                    if(pom2>0) przesun[i].w=3;
+                    if(pom2<0) przesun[i].w=1;
 
-            if(pom2>0) przesun[n-1].w=2;
-            if(pom2<0) przesun[n-1].w=4;
+
+                    }
+
+                 for(int i=2;i<n;i++){
+                    int pom1 = int(przesun[i].x-przesun[i-2].x);
+                    int pom2 = int(przesun[i].z-przesun[i-2].z);
+                   // printf("%f | %f\n",przesun[n-3].x,przesun[n-2].x);
+                    std::cout<<pom1<<" "<<pom2<<std::endl;
+                    if(pom1>0 && pom2>0) przesun[i-1].w=1.5;
+                    if(pom1>0 && pom2<0) przesun[i-1].w=2.5;
+                    if(pom1<0 && pom2>0) przesun[i-1].w=4.5;
+                    if(pom1<0 && pom2<0) przesun[i-1].w=3.5;
+
+                    }
+
             }
+                /*
+
         //włącznie wersji kosolowej dla Intel graphics
         /*
             pole[int(przesun[0].x/2)+5][int(przesun[0].z/2)+5]=1;
@@ -822,5 +854,7 @@ int main(void)
 
 	glfwDestroyWindow(window); //Usuń kontekst OpenGL i okno
 	glfwTerminate(); //Zwolnij zasoby zajęte przez GLFW
+	std::cout<<"Koniec gry";
+	std::cin>>add;
 	exit(EXIT_SUCCESS);
 }

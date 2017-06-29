@@ -45,7 +45,7 @@ void main(void) {
 
    }
 
-    mat4 Mod=M*Mov*Rot;
+    mat4 Mod=Mov*Rot*M;
 
 
 
