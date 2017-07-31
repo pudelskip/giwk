@@ -42,13 +42,13 @@ int b;
 
 using namespace glm;
 
-int tl = 0;
+int tl = -1;
 float speed1 =0;
 float speed2 =-1;
 
 float cam_angle=20;
 float cam_speed=0;
-
+float ang=0;
 
 bool add=false;
 bool can_move=true;
@@ -479,7 +479,7 @@ void drawObjectT(ObjObject* object, ShaderProgram *shaderProgram, mat4 mP, mat4 
 	glBindVertexArray(0);
 }
 //Procedura rysująca zawartość sceny
-void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEntity *entities) {
+void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEntity *entities, float ang) {
     srand(time(NULL));
     int pom = rand() % 30;
     //std::cout << pom << std::endl;
@@ -496,7 +496,7 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
    // glm::vec3 Obserwator = vec3(0.0f,-0.9f,18.0f);
     glm::vec3 Punkt = vec3(0.0f,0.0f,0.0f);
     glm::vec3 Nos = vec3(0.0f, 0.0f, -1.0f);
-
+    glm::mat4 P;
 
     float near=1.0f;
     float far=50.0f;
@@ -514,7 +514,7 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
 	glm::mat4 V_1 = glm::mat4(vec4(X_obs,0),vec4(Y_obs,0),vec4(Z_obs,0),vec4(Obserwator,1) );
 	//V_1=  transpose(V_1);
 	glm::mat4 V = inverse(V_1);
-	glm::mat4 P = glm::perspective(50 * PI / 180, 1.0f, 1.0f, 50.0f); //Wylicz macierz rzutowania
+
 
 	glm::mat4 P_1 = mat4(0.0f);
     P_1[0].x= 2*near/(right-left);
@@ -568,7 +568,7 @@ void drawScene(GLFWwindow* window,float mov1,float mov2,bool moved, int n,ObjEnt
             sc[3].w=1;
             glm::mat4 M = glm::mat4(1.0f);
 
-
+        jedzenie.w=ang;
         drawObjectT(entities[4].getObject(),shaderProgramT,P,V,M*sc,jedzenie);
 
 
@@ -624,8 +624,8 @@ int main(void)
 	}
 	initOpenGLProgram(window); //Operacje inicjujące
     //ObjEntity(glm::vec3 coords, int id, float scale, ObjObject* object)
-	ObjObject objectArray[5] = {{"snakeHead.obj", "snakeHead.png", "NormalDummy.png"}, {"board.obj", "board.png", "NormalMap.png"}, {"fence.obj", "fence.png", "NormalDummy.png"},
-        {"snakeBody.obj", "snakeBody.png", "NormalDummy.png"}, {"cupcake.obj", "cupcake.png","NormalDummy.png"}};
+	ObjObject objectArray[5] = {{"snakeHead.obj", "snakeHead.png", "NormalDummy.png"}, {"board.obj", "board.png", "NormalMap.png"}, {"fence.obj", "fence.png", "fenceNormal.png"},
+        {"snakeBody.obj", "snakeBody.png", "snakeBodyNormal.png"}, {"cupcake.obj", "cupcake.png","NormalDummy.png"}};
     ObjEntity entityArray[5] = {{vec3(0,1,0),1, 0.7, &objectArray[0]}, {vec3(0,0,0),1 , 1, &objectArray[1]}, {vec3(0,0,0),1 ,1 , &objectArray[2]},{vec3(0,0,0),1 ,1 , &objectArray[3]},{vec3(0,0,0),1 ,1 , &objectArray[4]}};
 
 	//poczatkowe pozyce segmentow
@@ -664,6 +664,8 @@ int main(void)
         if(cam_angle<15) cam_angle=15;
         czas += glfwGetTime();
         cam_angle+=cam_speed*glfwGetTime();
+        ang+=glfwGetTime();
+
         glfwSetTime(0);
 
 		if(czas>0.7f)
@@ -716,6 +718,16 @@ int main(void)
 
             }
 
+             for(int i=0;i<11;i++)
+        for(int j=0;j<11;j++)
+            pole[i][j]=0;
+
+
+    //wpisanie poczakowych pozycje to tablicy z planszą 11x11
+    for(int i=0;i<n;i++){
+                  pole[int(przesun[i].x/2)+5][int(przesun[i].z/2)+5]=1;
+
+                }
 
             moved=true;
 
@@ -734,6 +746,7 @@ int main(void)
                 if(tl == 10){
                     tl = 20;
                 }
+                ang=0;
                 int ile=0;
                 for(int i=0;i<11;i++){
                     for(int j=0;j<11;j++){
@@ -779,7 +792,7 @@ int main(void)
          can_move=true;
         }
 
-		drawScene(window,mov1,mov2,moved,n, entityArray); //Wykonaj procedurę rysującą
+		drawScene(window,mov1,mov2,moved,n, entityArray, ang); //Wykonaj procedurę rysującą
 		glfwPollEvents(); //Wykonaj procedury callback w zalezności od zdarzeń jakie zaszły.
 
 	}

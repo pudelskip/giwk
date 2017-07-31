@@ -1702,7 +1702,7 @@
 1496060066 c:\users\ervok\desktop\projekt\teapot.h
 	"model.h"
 
-1498770604 source:c:\users\ervok\desktop\projekt\main_file.cpp
+1498813334 source:c:\users\ervok\desktop\projekt\main_file.cpp
 	<iostream>
 	<GL/glew.h>
 	<GLFW/glfw3.h>
